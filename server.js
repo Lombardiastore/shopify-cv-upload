@@ -12,8 +12,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Google Drive Auth
-const credentials = JSON.parse(fs.readFileSync("credentials.json"));
-const token = JSON.parse(fs.readFileSync("token.json"));
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+const token = JSON.parse(process.env.GOOGLE_TOKEN);
 
 const { client_secret, client_id, redirect_uris } = credentials.installed;
 const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
@@ -54,8 +54,8 @@ app.post("/upload", upload.single("cv"), async (req, res) => {
       port: 587,
       secure: false,
       auth: {
-        user: "waleed.khaled@lombardia.com.jo",
-        pass: "W712@o.com"
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
       }
     });
 
