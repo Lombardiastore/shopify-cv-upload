@@ -129,7 +129,7 @@ app.post("/upload", upload.single("cv"), async (req, res) => {
 
     const html = `
       <div style="font-family:Tahoma,Arial,sans-serif;font-size:15px;color:#222">
-        <h2 style="margin:0 0 10px;color:#9E7A47;">طلب توظيف جديد</h2>
+        <h2 style="margin:0 0 7px;color:#9E7A47;">طلب توظيف جديد</h2>
         <table style="border-collapse:collapse;min-width:540px">
           ${rows}
         </table>
