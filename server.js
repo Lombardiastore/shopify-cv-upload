@@ -78,18 +78,19 @@ app.post("/upload", upload.single("cv"), async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: '"Lombardia HR" <' + process.env.SMTP_USER + '>',
-      to: "hr@lombardia.com.jo",
-      subject: "طلب توظيف جديد - مع CV",
-      html: `
-        <p><b>الاسم:</b> ${req.body.fullName || "-"}</p>
-        <p><b>الايميل:</b> ${req.body.email || "-"}</p>
-        <p><b>الهاتف:</b> ${req.body.phone || "-"}</p>
-        <p><b>الوظيفة:</b> ${req.body.position || "-"}</p>
-        <p><b>ملاحظات:</b> ${req.body.notes || "لا يوجد"}</p>
-        <p><b>📎 CV:</b> <a href="${fileLink}">اضغط هنا</a></p>
-      `
-    });
+  from: '"Lombardia HR" <' + process.env.SMTP_USER + '>',
+  to: "waleed.khaled@lombardia.com.jo",   // 📩 النسخة الأساسية توصلك
+  cc: "hr@lombardia.com.jo",              // 📩 نسخة cc للـ HR
+  subject: "طلب توظيف جديد - مع CV",
+  html: `
+    <p><b>الاسم:</b> ${req.body.fullName || "-"}</p>
+    <p><b>الايميل:</b> ${req.body.email || "-"}</p>
+    <p><b>الهاتف:</b> ${req.body.phone || "-"}</p>
+    <p><b>الوظيفة:</b> ${req.body.position || "-"}</p>
+    <p><b>ملاحظات:</b> ${req.body.notes || "لا يوجد"}</p>
+    <p><b>📎 CV:</b> <a href="${fileLink}">اضغط هنا</a></p>
+  `
+});
 
     console.log("Email sent OK");
     return res.send(`✅ تم رفع الملف بنجاح! <a href="${fileLink}">فتح الملف</a>`);
