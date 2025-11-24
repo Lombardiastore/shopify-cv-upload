@@ -16,7 +16,7 @@ const supabase = createClient(
 
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: "/tmp" });
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
