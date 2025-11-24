@@ -3,10 +3,17 @@ import multer from "multer";
 import fs from "fs";
 import { google } from "googleapis";
 import dotenv from "dotenv";
+dotenv.config();
 import fetch from "node-fetch";
 import nodemailer from "nodemailer"; // ✅ هنا فوق
+import { createClient } from "@supabase/supabase-js";
 
-dotenv.config();
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_PUBLIC_KEY
+);
+
+
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -23,12 +30,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, "shopify-cv-uploader-fe2532dda344.json"), // اسم ملف JSON
+  keyFile: "/etc/secrets/shopify-cv-uploader-fe2532dda344.json",
   scopes: [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/gmail.send",
   ],
 });
+
 
 const drive = google.drive({ version: "v3", auth });
 const gmail = google.gmail({ version: "v1", auth });
@@ -74,35 +82,39 @@ app.post("/upload", upload.single("cv"), async (req, res) => {
     const filePath = req.file.path;
     let fileLink = null;
 
-    // 1️⃣ رفع الملف إلى Google Drive
-    try {
-      const up = await drive.files.create({
-  requestBody: {
-    name: req.file.originalname,
-    parents: [process.env.FOLDER_ID], // فولدر ثابت
-  },
-  media: {
-    mimeType: req.file.mimetype,
-    body: fs.createReadStream(filePath),
-  },
-  fields: "id",
-});
+    // 1️⃣ رفع CV إلى Supabase Storage
+try {
+  const fileExt = req.file.originalname.split(".").pop();
+  const fileName = `${Date.now()}-${data.fullName.replace(/\s+/g, "_")}.${fileExt}`;
 
-      const fileId = up.data.id;
-      await drive.permissions.create({
-        fileId,
-        requestBody: { role: "reader", type: "anyone" },
-      });
+  const fileBuffer = fs.readFileSync(filePath);
 
-      fileLink = `https://drive.google.com/file/d/${fileId}/view`;
-      console.log("✅ Uploaded to Drive:", fileLink);
-    } catch (e) {
-      console.error("❌ Drive upload error:", e?.response?.data || e);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return;
-    } finally {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
+  const { data: uploadData, error: uploadError } = await supabase
+    .storage
+    .from("cv-uploads")
+    .upload(fileName, fileBuffer, {
+      contentType: req.file.mimetype,
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: publicURL } = supabase
+    .storage
+    .from("cv-uploads")
+    .getPublicUrl(fileName);
+
+  fileLink = publicURL.publicUrl;
+
+  console.log("✅ Uploaded to Supabase:", fileLink);
+
+} catch (e) {
+  console.error("❌ Supabase upload error:", e.message);
+  return;
+} finally {
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
 
     // ✅ نبني صفوف الجدول للإيميل
     const rows = [
