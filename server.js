@@ -13,26 +13,25 @@ const upload = multer({ dest: "uploads/" });
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// ==================== GOOGLE DRIVE AUTH via OAuth (Refresh Token ثابت) ====================
-const oAuth2Client = new google.auth.OAuth2(
-  process.env.CLIENT_ID,
-  process.env.CLIENT_SECRET,
-  process.env.REDIRECT_URI
-);
 
-const TOKEN = JSON.parse(process.env.TOKEN);
-oAuth2Client.setCredentials(TOKEN);
-// 🌀 في حال Google حدثت التوكن تلقائيًا (refresh)
-oAuth2Client.on("tokens", (tokens) => {
-  if (tokens.access_token) {
-    console.log("🔄 Access token تم تحديثه تلقائيًا ✅");
-  }
+
+// ==================== GOOGLE SERVICE ACCOUNT AUTH ====================
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const auth = new google.auth.GoogleAuth({
+  keyFile: path.join(__dirname, "shopify-cv-uploader-fe2532dda344.json"), // اسم ملف JSON
+  scopes: [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/gmail.send",
+  ],
 });
 
-
-
-const drive = google.drive({ version: "v3", auth: oAuth2Client });
-
+const drive = google.drive({ version: "v3", auth });
+const gmail = google.gmail({ version: "v1", auth });
 
 
 // helper لتأمين النص داخل HTML
@@ -78,16 +77,16 @@ app.post("/upload", upload.single("cv"), async (req, res) => {
     // 1️⃣ رفع الملف إلى Google Drive
     try {
       const up = await drive.files.create({
-        requestBody: {
-          name: req.file.originalname,
-          mimeType: req.file.mimetype,
-        },
-        media: {
-          mimeType: req.file.mimetype,
-          body: fs.createReadStream(filePath),
-        },
-        fields: "id",
-      });
+  requestBody: {
+    name: req.file.originalname,
+    parents: [process.env.FOLDER_ID], // فولدر ثابت
+  },
+  media: {
+    mimeType: req.file.mimetype,
+    body: fs.createReadStream(filePath),
+  },
+  fields: "id",
+});
 
       const fileId = up.data.id;
       await drive.permissions.create({
@@ -134,8 +133,6 @@ app.post("/upload", upload.single("cv"), async (req, res) => {
 
 // 2️⃣ إرسال الإيميل عبر Gmail API مباشرةً بدون SMTP
 try {
-  const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
-
   const subject = `${data.position} - ${data.fullName} - طلب توظيف`;
   const body = `
     <div style="font-family:Tahoma,Arial,sans-serif;font-size:15px;color:#222">
@@ -163,7 +160,8 @@ try {
     .replace(/=+$/, "");
 
   await gmail.users.messages.send({
-    userId: "me",
+    userId:
+      "shopify-cv-uploader@shopify-cv-uploader.iam.gserviceaccount.com",
     requestBody: { raw: encodedMessage },
   });
 
@@ -171,6 +169,7 @@ try {
 } catch (e) {
   console.error("❌ Gmail API error:", e?.response?.data || e);
 }
+
 
 
   });
